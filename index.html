@@ -9,16 +9,33 @@
 <style>
 #map { height: 100vh; width: 100%; }
 
+/* popup */
 .leaflet-popup-content {
     font-size: 18px;
     width: 280px;
+    line-height: 1.4;
 }
 
+.leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    padding: 10px;
+}
+
+/* фото */
 .leaflet-popup-content img {
     width: 100%;
     border-radius: 10px;
+    margin-top: 5px;
 }
 
+/* видео */
+.leaflet-popup-content video {
+    width: 100%;
+    border-radius: 10px;
+    margin-top: 5px;
+}
+
+/* блок пост */
 .big-text {
     font-size: 22px;
     font-weight: bold;
@@ -35,64 +52,86 @@
 <script>
 let map = L.map('map').setView([48.49, 35.13], 13);
 
-// карты
+// ===== ТЕМЫ =====
 let light = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 let dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
-L.control.layers({"Светлая": light, "Тёмная": dark}).addTo(map);
+L.control.layers({
+    "Светлая": light,
+    "Тёмная": dark
+}).addTo(map);
 
 let markers = [];
 
+// ===== ЗАГРУЗКА ТОЧЕК =====
 async function loadPoints() {
-    let res = await fetch("https://dnepr-kc9y.onrender.com/points");
-    let points = await res.json();
+    try {
+        let res = await fetch("https://dnepr-kc9y.onrender.com/points");
+        let points = await res.json();
 
-    markers.forEach(m => map.removeLayer(m));
-    markers = [];
+        // удаляем старые
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
 
-    points.forEach(p => {
+        points.forEach(p => {
 
-        let marker = L.circleMarker([p.lat, p.lon], {
-            radius: 14,
-            color: "red",
-            fillColor: "red",
-            fillOpacity: 0.9
-        }).addTo(map);
+            // красная точка
+            let marker = L.circleMarker([p.lat, p.lon], {
+                radius: 14,
+                color: "red",
+                fillColor: "red",
+                fillOpacity: 0.9,
+                weight: 2
+            }).addTo(map);
 
-        let hitbox = L.circleMarker([p.lat, p.lon], {
-            radius: 25,
-            opacity: 0,
-            fillOpacity: 0
-        }).addTo(map);
+            // зона клика (для мобилки)
+            let hitbox = L.circleMarker([p.lat, p.lon], {
+                radius: 25,
+                opacity: 0,
+                fillOpacity: 0
+            }).addTo(map);
 
-        hitbox.on('click', async function () {
+            hitbox.on('click', async function () {
 
-            let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
-            let data = await res.json();
+                let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
+                let data = await res.json();
 
-            let content = data.content || "";
-            let file_url = data.file_url;
+                let content = data.content || "";
+                let file_url = data.file_url;
+                let address = data.address || "Адрес не найден";
 
-            let html = "";
+                let html = `<div>
+                    <b>📍 ${address}</b><br><br>
+                `;
 
-            if (file_url) {
-                html = `<img src="${file_url}">`;
-            } 
-            else if (content.toUpperCase().includes("БЛОК")) {
-                html = `<div class="big-text">🚧 ${content}</div>`;
-            } 
-            else {
-                html = `<div>${content}</div>`;
-            }
+                // фото
+                if (file_url) {
+                    html += `<img src="${file_url}">`;
+                }
+                // блок пост
+                else if (content.toUpperCase().includes("БЛОК")) {
+                    html += `<div class="big-text">🚧 ${content}</div>`;
+                }
+                // обычный текст
+                else {
+                    html += `<div>${content}</div>`;
+                }
 
-            marker.bindPopup(html).openPopup();
+                html += "</div>";
+
+                marker.bindPopup(html).openPopup();
+            });
+
+            markers.push(marker);
+            markers.push(hitbox);
         });
 
-        markers.push(marker);
-        markers.push(hitbox);
-    });
+    } catch (e) {
+        console.log("Ошибка загрузки:", e);
+    }
 }
 
+// ===== ОБНОВЛЕНИЕ =====
 setInterval(loadPoints, 10000);
 loadPoints();
 </script>
