@@ -37,7 +37,7 @@ let markers = [];
 
 async function loadPoints() {
     try {
-        let res = await fetch("https://dnepr-y4r9.onrender.com/points");
+        let res = await fetch("https://dnepr-ntel.onrender.com/points");
         let points = await res.json();
 
         // Удаляем старые маркеры
@@ -54,7 +54,7 @@ async function loadPoints() {
 
             // Клик на точку
             marker.on('click', async function () {
-                let res = await fetch(`https://dnepr-y4r9.onrender.com/point/${p.id}`);
+                let res = await fetch(`https://dnepr-ntel.onrender.com/point/${p.id}`);
                 let data = await res.json();
 
                 let popupContent = data.content || "Нет данных";
