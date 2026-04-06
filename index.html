@@ -47,10 +47,28 @@ async function loadPoints() {
         points.forEach(p => {
             let color = p.type === "danger" ? "red" : "green";
 
-            let marker = L.circleMarker([p.lat, p.lon], {
-                radius: 8,
-                color: color
-            }).addTo(map);
+           let marker = L.circleMarker([p.lat, p.lon], {
+    radius: 14,
+    color: color,
+    fillColor: color,
+    fillOpacity: 0.9,
+    weight: 2
+}).addTo(map);
+
+// большая невидимая зона клика
+let hitbox = L.circleMarker([p.lat, p.lon], {
+    radius: 25,
+    opacity: 0,
+    fillOpacity: 0
+}).addTo(map);
+
+hitbox.on('click', async function () {
+    let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
+    let data = await res.json();
+    let content = data.content || "Нет данных";
+
+    marker.bindPopup(content).openPopup();
+});
 
             // Клик на точку → popup с контентом
             marker.on('click', async function () {
