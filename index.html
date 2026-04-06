@@ -2,98 +2,133 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Карта событий Днепра</title>
+    <title>Dnipro Map</title>
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
     <style>
         #map { height: 100vh; width: 100%; }
-        .leaflet-top.leaflet-right { top: 70px; }
+
+        .leaflet-popup-content {
+            font-size: 16px;
+            width: 260px;
+            line-height: 1.4;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .leaflet-popup-content img {
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 5px;
+        }
+
+        .leaflet-popup-content video {
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 5px;
+        }
     </style>
 </head>
+
 <body>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
 let map = L.map('map').setView([48.49, 35.13], 13);
 
-// Светлая тема
-let lightLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap'
-}).addTo(map);
+// Темы
+let lightLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Тёмная тема
-let darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap & Carto'
-});
+let darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
-// Переключатель темы
-let baseMaps = {
+L.control.layers({
     "Светлая": lightLayer,
     "Тёмная": darkLayer
-};
-L.control.layers(baseMaps).addTo(map);
+}).addTo(map);
 
 let markers = [];
 
+// Открытие точки по ссылке
+const params = new URLSearchParams(window.location.search);
+const urlLat = params.get('lat');
+const urlLon = params.get('lon');
+
+if (urlLat && urlLon) {
+    map.setView([urlLat, urlLon], 15);
+}
+
+// Загрузка точек
 async function loadPoints() {
     try {
         let res = await fetch("https://dnepr-kc9y.onrender.com/points");
         let points = await res.json();
 
-        // Удаляем старые точки
         markers.forEach(m => map.removeLayer(m));
         markers = [];
 
         points.forEach(p => {
             let color = p.type === "danger" ? "red" : "green";
 
-           let marker = L.circleMarker([p.lat, p.lon], {
-    radius: 14,
-    color: color,
-    fillColor: color,
-    fillOpacity: 0.9,
-    weight: 2
-}).addTo(map);
+            let marker = L.circleMarker([p.lat, p.lon], {
+                radius: 14,
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.9,
+                weight: 2
+            }).addTo(map);
 
-// большая невидимая зона клика
-let hitbox = L.circleMarker([p.lat, p.lon], {
-    radius: 25,
-    opacity: 0,
-    fillOpacity: 0
-}).addTo(map);
+            // зона клика
+            let hitbox = L.circleMarker([p.lat, p.lon], {
+                radius: 25,
+                opacity: 0,
+                fillOpacity: 0
+            }).addTo(map);
 
-hitbox.on('click', async function () {
-    let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
-    let data = await res.json();
-    let content = data.content || "Нет данных";
-
-    marker.bindPopup(content).openPopup();
-});
-
-            // Клик на точку → popup с контентом
-            marker.on('click', async function () {
+            hitbox.on('click', async function () {
                 let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
                 let data = await res.json();
                 let content = data.content || "Нет данных";
 
-                // Если content похож на file_id, показываем как ссылку
-                if (content.startsWith("AgAC")) {
-                    marker.bindPopup(`Медиа (file_id): ${content}`).openPopup();
-                } else {
-                    marker.bindPopup(content).openPopup();
+                let html = `<div>
+                    📍 <b>Событие</b><br><br>
+                `;
+
+                // если это ссылка на картинку
+                if (content.startsWith("http") && (content.includes(".jpg") || content.includes(".png"))) {
+                    html += `<img src="${content}">`;
                 }
+                // если это видео
+                else if (content.startsWith("http") && content.includes(".mp4")) {
+                    html += `<video controls src="${content}"></video>`;
+                }
+                else {
+                    html += `<div>${content}</div>`;
+                }
+
+                html += `</div>`;
+
+                marker.bindPopup(html).openPopup();
             });
 
             markers.push(marker);
+            markers.push(hitbox);
         });
-    } catch (err) {
-        console.error("Ошибка при загрузке точек:", err);
+
+    } catch (e) {
+        console.log("Ошибка загрузки:", e);
     }
 }
 
-// Обновляем каждые 10 секунд
+// автообновление
 setInterval(loadPoints, 10000);
 loadPoints();
 </script>
+
 </body>
 </html>
