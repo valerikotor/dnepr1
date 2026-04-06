@@ -40,7 +40,7 @@ async function loadPoints() {
         let res = await fetch("https://dnepr-kc9y.onrender.com/points");
         let points = await res.json();
 
-        // Удаляем старые маркеры
+        // Удаляем старые точки
         markers.forEach(m => map.removeLayer(m));
         markers = [];
 
@@ -52,13 +52,18 @@ async function loadPoints() {
                 color: color
             }).addTo(map);
 
-            // Клик на точку
+            // Клик на точку → popup с контентом
             marker.on('click', async function () {
                 let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
                 let data = await res.json();
+                let content = data.content || "Нет данных";
 
-                let popupContent = data.content || "Нет данных";
-                marker.bindPopup(popupContent).openPopup();
+                // Если content похож на file_id, показываем как ссылку
+                if (content.startsWith("AgAC")) {
+                    marker.bindPopup(`Медиа (file_id): ${content}`).openPopup();
+                } else {
+                    marker.bindPopup(content).openPopup();
+                }
             });
 
             markers.push(marker);
