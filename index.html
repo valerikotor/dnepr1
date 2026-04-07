@@ -1,10 +1,19 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Dnipro Map</title>
+<title>Карта событий Днепра | Онлайн карта опасности</title>
+
+<meta name="description" content="Онлайн карта Днепра. Блок посты, опасные зоны и актуальная информация в реальном времени.">
+<meta name="keywords" content="Днепр карта, блок посты Днепр, ТЦК Днепр, карта опасности, события Днепр">
+<meta name="author" content="Dnipro Map">
+
+<!-- OpenGraph -->
+<meta property="og:title" content="Карта событий Днепра">
+<meta property="og:description" content="Актуальная карта города в реальном времени">
+<meta property="og:type" content="website">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
@@ -14,7 +23,7 @@
 /* popup */
 .leaflet-popup-content {
     font-size: 16px;
-    width: 280px;
+    width: 260px;
 }
 
 /* фото */
@@ -25,12 +34,12 @@
 
 /* блок пост */
 .big-text {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: bold;
     color: red;
 }
 
-/* кнопка канал */
+/* кнопка Telegram */
 .telegram-btn {
     position: fixed;
     bottom: 20px;
@@ -41,6 +50,7 @@
     border-radius: 30px;
     text-decoration: none;
     z-index: 9999;
+    font-size: 14px;
 }
 </style>
 </head>
@@ -78,14 +88,14 @@ async function loadPoints() {
         let color = p.type === "safe" ? "green" : "red";
 
         let marker = L.circleMarker([p.lat, p.lon], {
-            radius: 14,
+            radius: 9,
             color: color,
             fillColor: color,
             fillOpacity: 0.9
         }).addTo(map);
 
         let hitbox = L.circleMarker([p.lat, p.lon], {
-            radius: 25,
+            radius: 18,
             opacity: 0,
             fillOpacity: 0
         }).addTo(map);
@@ -97,7 +107,19 @@ async function loadPoints() {
 
             let content = data.content || "";
             let file_url = data.file_url;
-            let address = data.address || "Адрес не найден";
+            let full = data.address || "";
+
+            // короткий адрес
+            let address = "Адрес не найден";
+            if (full) {
+                let parts = full.split(",");
+                address = parts.slice(0, 3).join(",");
+            }
+
+            // текст для "чисто"
+            if (!content && p.type === "safe") {
+                content = "Чисто";
+            }
 
             let html = `<div>
                 <b>📍 ${address}</b><br><br>
@@ -109,6 +131,9 @@ async function loadPoints() {
             else if (content.toUpperCase().includes("БЛОК")) {
                 html += `<div class="big-text">🚧 ${content}</div>`;
             } 
+            else if (p.type === "safe") {
+                html += `<div style="color:green;font-weight:bold;">🟢 ${content}</div>`;
+            }
             else {
                 html += `<div>${content}</div>`;
             }
