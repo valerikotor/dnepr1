@@ -1,8 +1,19 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>Dnipro Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Карта событий Днепра</title>
+
+<meta name="description" content="Онлайн карта событий Днепра. Опасные зоны, блок посты и актуальная информация в реальном времени.">
+<meta name="keywords" content="Днепр карта, блок посты, ТЦК, события Днепр, карта опасности">
+<meta name="author" content="Dnipro Map">
+
+<!-- OpenGraph -->
+<meta property="og:title" content="Карта событий Днепра">
+<meta property="og:description" content="Актуальная карта событий города">
+<meta property="og:type" content="website">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -13,26 +24,12 @@
 .leaflet-popup-content {
     font-size: 18px;
     width: 280px;
-    line-height: 1.4;
-}
-
-.leaflet-popup-content-wrapper {
-    border-radius: 12px;
-    padding: 10px;
 }
 
 /* фото */
 .leaflet-popup-content img {
     width: 100%;
     border-radius: 10px;
-    margin-top: 5px;
-}
-
-/* видео */
-.leaflet-popup-content video {
-    width: 100%;
-    border-radius: 10px;
-    margin-top: 5px;
 }
 
 /* блок пост */
@@ -41,18 +38,56 @@
     font-weight: bold;
     color: red;
 }
+
+/* КНОПКА TELEGRAM */
+.telegram-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #0088cc;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 30px;
+    font-size: 16px;
+    text-decoration: none;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 9999;
+}
+
+/* hover */
+.telegram-btn:hover {
+    background: #0077b5;
+}
+
+/* иконка */
+.telegram-btn svg {
+    width: 20px;
+    height: 20px;
+}
 </style>
 </head>
 
 <body>
+
 <div id="map"></div>
+
+<!-- КНОПКА TELEGRAM -->
+<a href="https://t.me/dnpro_radar" target="_blank" class="telegram-btn">
+    <svg viewBox="0 0 24 24" fill="white">
+        <path d="M9.993 15.53l-.396 5.588c.568 0 .815-.244 1.112-.537l2.67-2.556 5.537 4.045c1.015.56 1.733.266 2.01-.94l3.64-17.062.001-.001c.325-1.52-.55-2.115-1.54-1.75L1.69 9.545c-1.48.578-1.46 1.403-.252 1.776l5.44 1.697L19.67 5.3c.602-.366 1.15-.163.7.203"/>
+    </svg>
+    Канал
+</a>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 let map = L.map('map').setView([48.49, 35.13], 13);
 
-// ===== ТЕМЫ =====
+// карты
 let light = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 let dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
@@ -65,73 +100,58 @@ let markers = [];
 
 // ===== ЗАГРУЗКА ТОЧЕК =====
 async function loadPoints() {
-    try {
-        let res = await fetch("https://dnepr-kc9y.onrender.com/points");
-        let points = await res.json();
+    let res = await fetch("https://dnepr-kc9y.onrender.com/points");
+    let points = await res.json();
 
-        // удаляем старые
-        markers.forEach(m => map.removeLayer(m));
-        markers = [];
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
 
-        points.forEach(p => {
+    points.forEach(p => {
 
-            // красная точка
-            let marker = L.circleMarker([p.lat, p.lon], {
-                radius: 14,
-                color: "red",
-                fillColor: "red",
-                fillOpacity: 0.9,
-                weight: 2
-            }).addTo(map);
+        let marker = L.circleMarker([p.lat, p.lon], {
+            radius: 14,
+            color: "red",
+            fillColor: "red",
+            fillOpacity: 0.9
+        }).addTo(map);
 
-            // зона клика (для мобилки)
-            let hitbox = L.circleMarker([p.lat, p.lon], {
-                radius: 25,
-                opacity: 0,
-                fillOpacity: 0
-            }).addTo(map);
+        let hitbox = L.circleMarker([p.lat, p.lon], {
+            radius: 25,
+            opacity: 0,
+            fillOpacity: 0
+        }).addTo(map);
 
-            hitbox.on('click', async function () {
+        hitbox.on('click', async function () {
 
-                let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
-                let data = await res.json();
+            let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
+            let data = await res.json();
 
-                let content = data.content || "";
-                let file_url = data.file_url;
-                let address = data.address || "Адрес не найден";
+            let content = data.content || "";
+            let file_url = data.file_url;
+            let address = data.address || "Адрес не найден";
 
-                let html = `<div>
-                    <b>📍 ${address}</b><br><br>
-                `;
+            let html = `<div><b>📍 ${address}</b><br><br>`;
 
-                // фото
-                if (file_url) {
-                    html += `<img src="${file_url}">`;
-                }
-                // блок пост
-                else if (content.toUpperCase().includes("БЛОК")) {
-                    html += `<div class="big-text">🚧 ${content}</div>`;
-                }
-                // обычный текст
-                else {
-                    html += `<div>${content}</div>`;
-                }
+            if (file_url) {
+                html += `<img src="${file_url}">`;
+            } 
+            else if (content.toUpperCase().includes("БЛОК")) {
+                html += `<div class="big-text">🚧 ${content}</div>`;
+            } 
+            else {
+                html += `<div>${content}</div>`;
+            }
 
-                html += "</div>";
+            html += "</div>";
 
-                marker.bindPopup(html).openPopup();
-            });
-
-            markers.push(marker);
-            markers.push(hitbox);
+            marker.bindPopup(html).openPopup();
         });
 
-    } catch (e) {
-        console.log("Ошибка загрузки:", e);
-    }
+        markers.push(marker);
+        markers.push(hitbox);
+    });
 }
 
-// ===== ОБНОВЛЕНИЕ =====
 setInterval(loadPoints, 10000);
 loadPoints();
 </script>
