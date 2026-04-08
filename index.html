@@ -35,6 +35,7 @@
     color: red;
 }
 
+/* кнопка Telegram */
 .telegram-btn {
     position: fixed;
     bottom: 20px;
@@ -80,22 +81,19 @@ async function loadPoints() {
 
     points.forEach(p => {
 
-        let color = p.type === "safe" ? "green" : "red";
+        // ===== ИКОНКИ =====
+        let icon = L.divIcon({
+            className: "",
+            html: p.type === "safe"
+                ? "<div style='font-size:20px;'>🟢</div>"
+                : "<div style='font-size:20px;'>🚨</div>",
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
 
-        let marker = L.circleMarker([p.lat, p.lon], {
-            radius: 9,
-            color: color,
-            fillColor: color,
-            fillOpacity: 0.9
-        }).addTo(map);
+        let marker = L.marker([p.lat, p.lon], { icon }).addTo(map);
 
-        let hitbox = L.circleMarker([p.lat, p.lon], {
-            radius: 18,
-            opacity: 0,
-            fillOpacity: 0
-        }).addTo(map);
-
-        hitbox.on('click', async function () {
+        marker.on('click', async function () {
 
             let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
             let data = await res.json();
@@ -157,7 +155,6 @@ async function loadPoints() {
         });
 
         markers.push(marker);
-        markers.push(hitbox);
     });
 }
 
