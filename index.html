@@ -6,36 +6,29 @@
 
 <title>Карта событий Днепра | Онлайн карта</title>
 
-<meta name="description" content="Онлайн карта Днепра. Актуальные события, отметки пользователей и ситуация в городе в реальном времени.">
-<meta name="keywords" content="Днепр карта, карта города, события Днепр, онлайн карта">
-<meta name="author" content="Dnipro Map">
-
-<meta property="og:title" content="Карта событий Днепра">
-<meta property="og:description" content="Живая карта города в реальном времени">
-<meta property="og:type" content="website">
+<meta name="description" content="Онлайн карта Днепра. Актуальные события в реальном времени.">
+<meta name="keywords" content="Днепр карта, события, онлайн карта">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<!-- кластер -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
 
 <style>
 #map { height: 100vh; width: 100%; }
 
-.leaflet-popup-content {
-    font-size: 16px;
-    width: 260px;
+.filter-box {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: white;
+    padding: 10px;
+    border-radius: 12px;
+    z-index: 9999;
+    font-size: 14px;
 }
 
-.leaflet-popup-content img {
-    width: 100%;
-    border-radius: 10px;
-}
-
-.big-text {
-    font-size: 20px;
-    font-weight: bold;
-    color: red;
-}
-
-/* кнопка Telegram */
 .telegram-btn {
     position: fixed;
     bottom: 20px;
@@ -46,7 +39,6 @@
     border-radius: 30px;
     text-decoration: none;
     z-index: 9999;
-    font-size: 14px;
 }
 </style>
 </head>
@@ -55,11 +47,23 @@
 
 <div id="map"></div>
 
+<div class="filter-box">
+<b>Фильтр:</b><br>
+<label><input type="checkbox" checked value="danger"> 🚨</label>
+<label><input type="checkbox" checked value="police"> 👮</label>
+<label><input type="checkbox" checked value="block"> 🚧</label>
+<label><input type="checkbox" checked value="safe"> 🟢</label>
+</div>
+
 <a href="https://t.me/dnpro_radar" target="_blank" class="telegram-btn">
 📢 Канал
 </a>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+<!-- heatmap -->
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
 <script>
 let map = L.map('map').setView([48.49, 35.13], 13);
@@ -70,32 +74,52 @@ let dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r
 
 L.control.layers({"Светлая": light, "Тёмная": dark}).addTo(map);
 
-let markers = [];
+// кластер
+let cluster = L.markerClusterGroup();
+map.addLayer(cluster);
 
+// heatmap слой
+let heatLayer = L.heatLayer([], {radius: 25}).addTo(map);
+
+// фильтр
+function getActiveTypes() {
+    return Array.from(document.querySelectorAll(".filter-box input:checked"))
+        .map(i => i.value);
+}
+
+// загрузка
 async function loadPoints() {
     let res = await fetch("https://dnepr-kc9y.onrender.com/points");
     let points = await res.json();
 
-    markers.forEach(m => map.removeLayer(m));
-    markers = [];
+    cluster.clearLayers();
+
+    let heatData = [];
+
+    let active = getActiveTypes();
 
     points.forEach(p => {
 
-        // ===== ИКОНКИ =====
-       let icon = L.divIcon({
-    className: "",
-    html:
-        p.type === "safe" ? "<div style='font-size:20px;'>🟢</div>" :
-        p.type === "police" ? "<div style='font-size:20px;'>👮</div>" :
-        p.type === "block" ? "<div style='font-size:20px;'>🚧</div>" :
-        "<div style='font-size:20px;'>🚨</div>",
-    iconSize: [20, 20],
-    iconAnchor: [10, 10]
+        if (!active.includes(p.type)) return;
+
+        // heatmap (только опасные)
+        if (p.type === "danger") {
+            heatData.push([p.lat, p.lon, 1]);
+        }
+
+        let icon = L.divIcon({
+            className: "",
+            html:
+                p.type === "safe" ? "🟢" :
+                p.type === "police" ? "👮" :
+                p.type === "block" ? "🚧" :
+                "🚨",
+            iconSize: [20, 20]
         });
 
-        let marker = L.marker([p.lat, p.lon], { icon }).addTo(map);
+        let marker = L.marker([p.lat, p.lon], { icon });
 
-        marker.on('click', async function () {
+        marker.on('click', async () => {
 
             let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
             let data = await res.json();
@@ -105,63 +129,44 @@ async function loadPoints() {
             let full = data.address || "";
             let timestamp = data.timestamp;
 
-            // ===== короткий адрес =====
-            let address = "Адрес не найден";
-            if (full) {
-                let parts = full.split(",");
-                address = parts.slice(0, 3).join(",");
-            }
+            let title =
+                p.type === "safe" ? "🟢 Чисто" :
+                p.type === "police" ? "👮 Полиция" :
+                p.type === "block" ? "🚧 Блок пост" :
+                "🚨 Опасность";
 
-            // ===== время =====
-            let now = Math.floor(Date.now() / 1000);
-            let minutes = timestamp ? Math.floor((now - timestamp) / 60) : 0;
-            let timeText = `🕒 ${minutes} мин назад`;
+            let address = full.split(",").slice(0,3).join(",");
 
-            // ===== текст для "чисто" =====
-            if (!content && p.type === "safe") {
-                content = "Чисто";
-            }
+            let now = Math.floor(Date.now()/1000);
+            let minutes = Math.floor((now - timestamp)/60);
 
-            let html = `<div>
-                <b>📍 ${address}</b><br><br>
-            `;
+            let html = `<b>${title}</b><br>📍 ${address}<br><br>`;
 
-            if (file_url) {
-                html += `<img src="${file_url}">`;
+            if (file_url) html += `<img src="${file_url}" width="100%">`;
+            if (content) html += `<div>${content}</div>`;
 
-                if (content) {
-                    html += `<div style="margin-top:5px;">${content}</div>`;
-                }
-            } 
-            else if (content.toUpperCase().includes("БЛОК")) {
-                html += `<div class="big-text">🚧 ${content}</div>`;
-            } 
-            else if (p.type === "safe") {
-                html += `<div style="color:green;font-weight:bold;">🟢 ${content}</div>`;
-            }
-            else {
-                html += `<div>${content}</div>`;
-            }
-
-            html += `<br><br><small>${timeText}</small>`;
+            html += `<br><small>🕒 ${minutes} мин назад</small>`;
             html += `<br><small>ID: ${p.id}</small>`;
 
-            html += `<br><br>
-            <a href="https://t.me/ТВОЙ_КАНАЛ" target="_blank"
-            style="display:block;text-align:center;background:#0088cc;color:white;padding:8px;border-radius:8px;text-decoration:none;">
-            📢 Перейти в канал
-            </a>
-            </div>`;
+            html += `<br><br><a href="https://t.me/dnpro_radar" target="_blank">📢 Канал</a>`;
 
             marker.bindPopup(html).openPopup();
         });
 
-        markers.push(marker);
+        cluster.addLayer(marker);
     });
+
+    heatLayer.setLatLngs(heatData);
 }
 
+// обновление
 setInterval(loadPoints, 10000);
 loadPoints();
+
+// фильтр
+document.querySelectorAll(".filter-box input").forEach(el => {
+    el.addEventListener("change", loadPoints);
+});
 </script>
 
 </body>
