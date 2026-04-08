@@ -82,13 +82,15 @@ async function loadPoints() {
     points.forEach(p => {
 
         // ===== ИКОНКИ =====
-        let icon = L.divIcon({
-            className: "",
-            html: p.type === "safe"
-                ? "<div style='font-size:20px;'>🟢</div>"
-                : "<div style='font-size:20px;'>🚨</div>",
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
+       let icon = L.divIcon({
+    className: "",
+    html:
+        p.type === "safe" ? "<div style='font-size:20px;'>🟢</div>" :
+        p.type === "police" ? "<div style='font-size:20px;'>👮</div>" :
+        p.type === "block" ? "<div style='font-size:20px;'>🚧</div>" :
+        "<div style='font-size:20px;'>🚨</div>",
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
         });
 
         let marker = L.marker([p.lat, p.lon], { icon }).addTo(map);
