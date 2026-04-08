@@ -4,43 +4,54 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Карта событий Днепра | Онлайн карта</title>
-
-<meta name="description" content="Онлайн карта Днепра. Актуальные события в реальном времени.">
-<meta name="keywords" content="Днепр карта, события, онлайн карта">
+<title>Карта событий Днепра</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
 
 <style>
 #map { height: 100vh; width: 100%; }
 
-/* фильтр вниз влево */
+/* кнопки фильтра */
 .filter-box {
     position: fixed;
-    bottom: 20px;
+    bottom: 90px;
     left: 10px;
     background: white;
     padding: 10px;
     border-radius: 12px;
     z-index: 9999;
+}
+
+.filter-btn {
+    display: block;
+    margin: 4px 0;
+    padding: 6px;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #eee;
+}
+
+.filter-btn.active {
+    background: #0088cc;
+    color: white;
+}
+
+/* кнопки справа */
+.btn {
+    position: fixed;
+    right: 20px;
+    padding: 12px 14px;
+    border-radius: 30px;
+    color: white;
+    text-decoration: none;
+    z-index: 9999;
     font-size: 14px;
 }
 
-/* кнопка канал */
-.telegram-btn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: #0088cc;
-    color: white;
-    padding: 12px 16px;
-    border-radius: 30px;
-    text-decoration: none;
-    z-index: 9999;
-}
+.channel-btn { bottom: 20px; background: #0088cc; }
+.bot-btn { bottom: 70px; background: #28a745; }
+.heat-btn { bottom: 120px; background: #ff5722; }
 </style>
 </head>
 
@@ -49,16 +60,15 @@
 <div id="map"></div>
 
 <div class="filter-box">
-<b>Фильтр:</b><br>
-<label><input type="checkbox" checked value="danger"> 🚨</label>
-<label><input type="checkbox" checked value="police"> 👮</label>
-<label><input type="checkbox" checked value="block"> 🚧</label>
-<label><input type="checkbox" checked value="safe"> 🟢</label>
+<div class="filter-btn active" data-type="danger">🚨 Опасность</div>
+<div class="filter-btn active" data-type="police">👮 Полиция</div>
+<div class="filter-btn active" data-type="block">🚧 Блок пост</div>
+<div class="filter-btn active" data-type="safe">🟢 Чисто</div>
 </div>
 
-<a href="https://t.me/dnpro_radar" target="_blank" class="telegram-btn">
-📢 Канал
-</a>
+<a href="https://t.me/dneprrodar_bot" class="btn bot-btn">➕ Добавить</a>
+<a href="https://t.me/dnpro_radar" class="btn channel-btn">📢 Канал</a>
+<a href="#" id="heatToggle" class="btn heat-btn">🔥 Heatmap</a>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
@@ -67,24 +77,45 @@
 <script>
 let map = L.map('map').setView([48.49, 35.13], 13);
 
-// темы
-let light = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-let dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-L.control.layers({"Светлая": light, "Тёмная": dark}).addTo(map);
-
-// кластер
 let cluster = L.markerClusterGroup();
 map.addLayer(cluster);
 
-// heatmap
-let heatLayer = L.heatLayer([], {radius: 25}).addTo(map);
+let heatLayer = L.heatLayer([], {radius: 25});
+let heatEnabled = true;
+map.addLayer(heatLayer);
 
-// фильтр
-function getActiveTypes() {
-    return Array.from(document.querySelectorAll(".filter-box input:checked"))
-        .map(i => i.value);
-}
+let activeTypes = ["danger","police","block","safe"];
+let lastCount = 0;
+
+// фильтр кнопки
+document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.onclick = () => {
+        let type = btn.dataset.type;
+
+        if (activeTypes.includes(type)) {
+            activeTypes = activeTypes.filter(t => t !== type);
+            btn.classList.remove("active");
+        } else {
+            activeTypes.push(type);
+            btn.classList.add("active");
+        }
+
+        loadPoints();
+    }
+});
+
+// heatmap toggle
+document.getElementById("heatToggle").onclick = () => {
+    heatEnabled = !heatEnabled;
+
+    if (heatEnabled) {
+        map.addLayer(heatLayer);
+    } else {
+        map.removeLayer(heatLayer);
+    }
+};
 
 // загрузка
 async function loadPoints() {
@@ -94,30 +125,26 @@ async function loadPoints() {
     cluster.clearLayers();
 
     let heatData = [];
-    let active = getActiveTypes();
 
     points.forEach(p => {
 
-        if (!active.includes(p.type)) return;
+        if (!activeTypes.includes(p.type)) return;
 
-        // heatmap только опасность
         if (p.type === "danger") {
             heatData.push([p.lat, p.lon, 1]);
         }
 
-        // 🔥 увеличенные иконки
         let icon = L.divIcon({
-            className: "",
             html:
-                p.type === "safe" ? "<div style='font-size:24px;'>🟢</div>" :
-                p.type === "police" ? "<div style='font-size:24px;'>👮</div>" :
-                p.type === "block" ? "<div style='font-size:24px;'>🚧</div>" :
-                "<div style='font-size:24px;'>🚨</div>",
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
+                p.type === "safe" ? "🟢" :
+                p.type === "police" ? "👮" :
+                p.type === "block" ? "🚧" :
+                "🚨",
+            className: "",
+            iconSize: [26,26]
         });
 
-        let marker = L.marker([p.lat, p.lon], { icon });
+        let marker = L.marker([p.lat, p.lon], {icon});
 
         marker.on('click', async () => {
 
@@ -126,29 +153,15 @@ async function loadPoints() {
 
             let content = data.content || "";
             let file_url = data.file_url;
-            let full = data.address || "";
-            let timestamp = data.timestamp;
+            let address = (data.address || "").split(",").slice(0,3).join(",");
+            let minutes = Math.floor((Date.now()/1000 - data.timestamp)/60);
 
-            let title =
-                p.type === "safe" ? "🟢 Чисто" :
-                p.type === "police" ? "👮 Полиция" :
-                p.type === "block" ? "🚧 Блок пост" :
-                "🚨 Опасность";
-
-            let address = full.split(",").slice(0,3).join(",");
-
-            let now = Math.floor(Date.now()/1000);
-            let minutes = timestamp ? Math.floor((now - timestamp)/60) : 0;
-
-            let html = `<b>${title}</b><br>📍 ${address}<br><br>`;
+            let html = `<b>${p.type}</b><br>${address}<br>`;
 
             if (file_url) html += `<img src="${file_url}" width="100%">`;
             if (content) html += `<div>${content}</div>`;
 
-            html += `<br><small>🕒 ${minutes} мин назад</small>`;
-            html += `<br><small>ID: ${p.id}</small>`;
-
-            html += `<br><br><a href="https://t.me/dnpro_radar" target="_blank">📢 Канал</a>`;
+            html += `<br>🕒 ${minutes} мин`;
 
             marker.bindPopup(html).openPopup();
         });
@@ -157,16 +170,18 @@ async function loadPoints() {
     });
 
     heatLayer.setLatLngs(heatData);
+
+    // авто центр
+    if (points.length > lastCount && points.length > 0) {
+        let last = points[points.length - 1];
+        map.setView([last.lat, last.lon], 15);
+    }
+
+    lastCount = points.length;
 }
 
-// обновление
 setInterval(loadPoints, 10000);
 loadPoints();
-
-// фильтр
-document.querySelectorAll(".filter-box input").forEach(el => {
-    el.addEventListener("change", loadPoints);
-});
 </script>
 
 </body>
