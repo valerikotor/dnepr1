@@ -4,15 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Карта событий Днепра | Онлайн карта опасности</title>
+<title>Карта событий Днепра | Онлайн карта</title>
 
-<meta name="description" content="Онлайн карта Днепра. Блок посты, опасные зоны и актуальная информация в реальном времени.">
-<meta name="keywords" content="Днепр карта, блок посты Днепр, ТЦК Днепр, карта опасности, события Днепр">
+<meta name="description" content="Онлайн карта Днепра. Актуальные события, отметки пользователей и ситуация в городе в реальном времени.">
+<meta name="keywords" content="Днепр карта, карта города, события Днепр, онлайн карта">
 <meta name="author" content="Dnipro Map">
 
-<!-- OpenGraph -->
 <meta property="og:title" content="Карта событий Днепра">
-<meta property="og:description" content="Актуальная карта города в реальном времени">
+<meta property="og:description" content="Живая карта города в реальном времени">
 <meta property="og:type" content="website">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -20,26 +19,22 @@
 <style>
 #map { height: 100vh; width: 100%; }
 
-/* popup */
 .leaflet-popup-content {
     font-size: 16px;
     width: 260px;
 }
 
-/* фото */
 .leaflet-popup-content img {
     width: 100%;
     border-radius: 10px;
 }
 
-/* блок пост */
 .big-text {
     font-size: 20px;
     font-weight: bold;
     color: red;
 }
 
-/* кнопка Telegram */
 .telegram-btn {
     position: fixed;
     bottom: 20px;
@@ -108,15 +103,21 @@ async function loadPoints() {
             let content = data.content || "";
             let file_url = data.file_url;
             let full = data.address || "";
+            let timestamp = data.timestamp;
 
-            // короткий адрес
+            // ===== короткий адрес =====
             let address = "Адрес не найден";
             if (full) {
                 let parts = full.split(",");
                 address = parts.slice(0, 3).join(",");
             }
 
-            // текст для "чисто"
+            // ===== время =====
+            let now = Math.floor(Date.now() / 1000);
+            let minutes = timestamp ? Math.floor((now - timestamp) / 60) : 0;
+            let timeText = `🕒 ${minutes} мин назад`;
+
+            // ===== текст для "чисто" =====
             if (!content && p.type === "safe") {
                 content = "Чисто";
             }
@@ -127,6 +128,10 @@ async function loadPoints() {
 
             if (file_url) {
                 html += `<img src="${file_url}">`;
+
+                if (content) {
+                    html += `<div style="margin-top:5px;">${content}</div>`;
+                }
             } 
             else if (content.toUpperCase().includes("БЛОК")) {
                 html += `<div class="big-text">🚧 ${content}</div>`;
@@ -138,7 +143,8 @@ async function loadPoints() {
                 html += `<div>${content}</div>`;
             }
 
-            html += `<br><br><small>ID: ${p.id}</small>`;
+            html += `<br><br><small>${timeText}</small>`;
+            html += `<br><small>ID: ${p.id}</small>`;
 
             html += `<br><br>
             <a href="https://t.me/ТВОЙ_КАНАЛ" target="_blank"
