@@ -4,29 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Карта событий Днепра</title>
+<title>Карта событий Днепра | Онлайн карта</title>
+
+<meta name="description" content="Онлайн карта Днепра. Актуальные события в реальном времени.">
+<meta name="keywords" content="Днепр карта, события, онлайн карта">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
 
 <style>
 #map { height: 100vh; width: 100%; }
 
-/* кнопки фильтра */
+/* фильтр — ниже и компактнее */
 .filter-box {
     position: fixed;
-    bottom: 90px;
+    bottom: 15px;
     left: 10px;
     background: white;
-    padding: 10px;
-    border-radius: 12px;
+    padding: 8px;
+    border-radius: 10px;
     z-index: 9999;
+    font-size: 13px;
 }
 
 .filter-btn {
     display: block;
-    margin: 4px 0;
-    padding: 6px;
+    margin: 3px 0;
+    padding: 5px 8px;
     border-radius: 8px;
     cursor: pointer;
     background: #eee;
@@ -37,21 +42,26 @@
     color: white;
 }
 
-/* кнопки справа */
+/* кнопки справа одинаковые */
 .btn {
     position: fixed;
-    right: 20px;
-    padding: 12px 14px;
-    border-radius: 30px;
+    right: 15px;
+    padding: 10px 12px;
+    border-radius: 25px;
     color: white;
     text-decoration: none;
     z-index: 9999;
-    font-size: 14px;
+    font-size: 13px;
+    background: #0088cc;
 }
 
-.channel-btn { bottom: 20px; background: #0088cc; }
-.bot-btn { bottom: 70px; background: #28a745; }
-.heat-btn { bottom: 120px; background: #ff5722; }
+.bot-btn { bottom: 70px; }
+.channel-btn { bottom: 20px; }
+
+.leaflet-popup-content img {
+    width: 100%;
+    border-radius: 10px;
+}
 </style>
 </head>
 
@@ -59,6 +69,7 @@
 
 <div id="map"></div>
 
+<!-- фильтр -->
 <div class="filter-box">
 <div class="filter-btn active" data-type="danger">🚨 Опасность</div>
 <div class="filter-btn active" data-type="police">👮 Полиция</div>
@@ -66,30 +77,29 @@
 <div class="filter-btn active" data-type="safe">🟢 Чисто</div>
 </div>
 
+<!-- кнопки -->
 <a href="https://t.me/dneprrodar_bot" class="btn bot-btn">➕ Добавить</a>
 <a href="https://t.me/dnpro_radar" class="btn channel-btn">📢 Канал</a>
-<a href="#" id="heatToggle" class="btn heat-btn">🔥 Heatmap</a>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
-<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
 <script>
 let map = L.map('map').setView([48.49, 35.13], 13);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+// темы (сохранено)
+let light = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+let dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
+L.control.layers({"Светлая": light, "Тёмная": dark}).addTo(map);
+
+// кластер (сохранено)
 let cluster = L.markerClusterGroup();
 map.addLayer(cluster);
 
-let heatLayer = L.heatLayer([], {radius: 25});
-let heatEnabled = true;
-map.addLayer(heatLayer);
-
+// фильтр
 let activeTypes = ["danger","police","block","safe"];
-let lastCount = 0;
 
-// фильтр кнопки
 document.querySelectorAll(".filter-btn").forEach(btn => {
     btn.onclick = () => {
         let type = btn.dataset.type;
@@ -106,17 +116,6 @@ document.querySelectorAll(".filter-btn").forEach(btn => {
     }
 });
 
-// heatmap toggle
-document.getElementById("heatToggle").onclick = () => {
-    heatEnabled = !heatEnabled;
-
-    if (heatEnabled) {
-        map.addLayer(heatLayer);
-    } else {
-        map.removeLayer(heatLayer);
-    }
-};
-
 // загрузка
 async function loadPoints() {
     let res = await fetch("https://dnepr-kc9y.onrender.com/points");
@@ -124,62 +123,66 @@ async function loadPoints() {
 
     cluster.clearLayers();
 
-    let heatData = [];
-
     points.forEach(p => {
 
         if (!activeTypes.includes(p.type)) return;
 
-        if (p.type === "danger") {
-            heatData.push([p.lat, p.lon, 1]);
-        }
-
+        // иконки прежнего размера
         let icon = L.divIcon({
-            html:
-                p.type === "safe" ? "🟢" :
-                p.type === "police" ? "👮" :
-                p.type === "block" ? "🚧" :
-                "🚨",
             className: "",
-            iconSize: [26,26]
+            html:
+                p.type === "safe" ? "<div style='font-size:20px;'>🟢</div>" :
+                p.type === "police" ? "<div style='font-size:20px;'>👮</div>" :
+                p.type === "block" ? "<div style='font-size:20px;'>🚧</div>" :
+                "<div style='font-size:20px;'>🚨</div>",
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
         });
 
-        let marker = L.marker([p.lat, p.lon], {icon});
+        let marker = L.marker([p.lat, p.lon], { icon });
 
-        marker.on('click', async () => {
+        marker.on('click', async function () {
 
             let res = await fetch(`https://dnepr-kc9y.onrender.com/point/${p.id}`);
             let data = await res.json();
 
             let content = data.content || "";
             let file_url = data.file_url;
-            let address = (data.address || "").split(",").slice(0,3).join(",");
-            let minutes = Math.floor((Date.now()/1000 - data.timestamp)/60);
+            let full = data.address || "";
+            let timestamp = data.timestamp;
 
-            let html = `<b>${p.type}</b><br>${address}<br>`;
+            let title =
+                p.type === "safe" ? "🟢 Чисто" :
+                p.type === "police" ? "👮 Полиция" :
+                p.type === "block" ? "🚧 Блок пост" :
+                "🚨 Опасность";
 
-            if (file_url) html += `<img src="${file_url}" width="100%">`;
+            let address = full.split(",").slice(0,3).join(",");
+
+            let now = Math.floor(Date.now()/1000);
+            let minutes = timestamp ? Math.floor((now - timestamp)/60) : 0;
+
+            let html = `<b>${title}</b><br>📍 ${address}<br><br>`;
+
+            if (file_url) html += `<img src="${file_url}">`;
             if (content) html += `<div>${content}</div>`;
 
-            html += `<br>🕒 ${minutes} мин`;
+            html += `<br><small>🕒 ${minutes} мин назад</small>`;
+            html += `<br><small>ID: ${p.id}</small>`;
+
+            html += `<br><br>
+            <a href="https://t.me/dnpro_radar" target="_blank">
+            📢 Перейти в канал
+            </a>`;
 
             marker.bindPopup(html).openPopup();
         });
 
         cluster.addLayer(marker);
     });
-
-    heatLayer.setLatLngs(heatData);
-
-    // авто центр
-    if (points.length > lastCount && points.length > 0) {
-        let last = points[points.length - 1];
-        map.setView([last.lat, last.lon], 15);
-    }
-
-    lastCount = points.length;
 }
 
+// обновление
 setInterval(loadPoints, 10000);
 loadPoints();
 </script>
