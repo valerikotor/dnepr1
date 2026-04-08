@@ -7,24 +7,13 @@
 <title>Карта событий Днепра | Онлайн карта</title>
 
 <meta name="description" content="Онлайн карта Днепра. Смотри события в реальном времени.">
-<meta name="keywords" content="Днепр карта, события, онлайн карта">
 
-<!-- 🔥 TELEGRAM / OG -->
+<!-- OG -->
 <meta property="og:title" content="Карта событий Днепра">
-<meta property="og:description" content="Живая карта города. Узнавай ситуацию в реальном времени.">
+<meta property="og:description" content="Живая карта города">
 <meta property="og:image" content="https://dnepr1.vercel.app/preview.jpg">
 <meta property="og:url" content="https://dnepr1.vercel.app">
 <meta property="og:type" content="website">
-
-<!-- Twitter (доп) -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Карта событий Днепра">
-<meta name="twitter:description" content="Живая карта города">
-<meta name="twitter:image" content="https://dnepr1.vercel.app/preview.jpg">
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
@@ -33,25 +22,32 @@
 <style>
 #map { height: 100vh; width: 100%; }
 
-/* фильтр — ниже и компактнее */
+/* 🔥 стеклянный эффект */
+.glass {
+    backdrop-filter: blur(10px);
+    background: rgba(255,255,255,0.7);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+/* фильтр */
 .filter-box {
     position: fixed;
     bottom: 15px;
     left: 10px;
-    background: white;
-    padding: 8px;
-    border-radius: 10px;
+    padding: 10px;
+    border-radius: 12px;
     z-index: 9999;
     font-size: 13px;
 }
 
 .filter-btn {
     display: block;
-    margin: 3px 0;
-    padding: 5px 8px;
-    border-radius: 8px;
+    margin: 4px 0;
+    padding: 6px 10px;
+    border-radius: 10px;
     cursor: pointer;
-    background: #eee;
+    background: rgba(0,0,0,0.05);
+    transition: 0.2s;
 }
 
 .filter-btn.active {
@@ -59,25 +55,33 @@
     color: white;
 }
 
-/* кнопки справа одинаковые */
+/* кнопки */
 .btn {
     position: fixed;
     right: 15px;
-    padding: 10px 12px;
-    border-radius: 25px;
+    padding: 11px 14px;
+    border-radius: 30px;
     color: white;
     text-decoration: none;
     z-index: 9999;
     font-size: 13px;
-    background: #0088cc;
+    background: linear-gradient(135deg, #0088cc, #00aaff);
+    box-shadow: 0 4px 15px rgba(0,136,204,0.4);
 }
 
 .bot-btn { bottom: 70px; }
 .channel-btn { bottom: 20px; }
 
+/* popup */
+.leaflet-popup-content-wrapper {
+    border-radius: 14px;
+    padding: 8px;
+}
+
 .leaflet-popup-content img {
     width: 100%;
     border-radius: 10px;
+    margin-top: 5px;
 }
 </style>
 </head>
@@ -87,7 +91,7 @@
 <div id="map"></div>
 
 <!-- фильтр -->
-<div class="filter-box">
+<div class="filter-box glass">
 <div class="filter-btn active" data-type="danger">🚨 Опасность</div>
 <div class="filter-btn active" data-type="police">👮 Полиция</div>
 <div class="filter-btn active" data-type="block">🚧 Блок пост</div>
@@ -104,13 +108,13 @@
 <script>
 let map = L.map('map').setView([48.49, 35.13], 13);
 
-// темы (сохранено)
+// темы
 let light = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 let dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
 L.control.layers({"Светлая": light, "Тёмная": dark}).addTo(map);
 
-// кластер (сохранено)
+// кластер
 let cluster = L.markerClusterGroup();
 map.addLayer(cluster);
 
@@ -144,7 +148,6 @@ async function loadPoints() {
 
         if (!activeTypes.includes(p.type)) return;
 
-        // иконки прежнего размера
         let icon = L.divIcon({
             className: "",
             html:
@@ -179,18 +182,24 @@ async function loadPoints() {
             let now = Math.floor(Date.now()/1000);
             let minutes = timestamp ? Math.floor((now - timestamp)/60) : 0;
 
-            let html = `<b>${title}</b><br>📍 ${address}<br><br>`;
+            let html = `
+            <div>
+            <b style="font-size:16px">${title}</b><br>
+            <span style="color:#666">📍 ${address}</span><br><br>
+            `;
 
             if (file_url) html += `<img src="${file_url}">`;
-            if (content) html += `<div>${content}</div>`;
+            if (content) html += `<div style="margin-top:6px">${content}</div>`;
 
             html += `<br><small>🕒 ${minutes} мин назад</small>`;
             html += `<br><small>ID: ${p.id}</small>`;
 
             html += `<br><br>
-            <a href="https://t.me/dnpro_radar" target="_blank">
+            <a href="https://t.me/dnpro_radar" target="_blank"
+            style="display:block;text-align:center;background:#0088cc;color:white;padding:8px;border-radius:10px;text-decoration:none;">
             📢 Перейти в канал
-            </a>`;
+            </a>
+            </div>`;
 
             marker.bindPopup(html).openPopup();
         });
